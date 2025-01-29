@@ -1,7 +1,6 @@
 name: Interpark Automation
 
 on:
-  # (예) 매일 UTC 기준 1시58분~9시58분 => 한국 시간으론 10시58분~18시58분 (총 9회)
   schedule:
     - cron: '58 1-9 * * *'
   workflow_dispatch:
@@ -16,34 +15,18 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
-          python-version: '3.9'
+          python-version: "3.9"
 
       - name: Install dependencies
         run: |
-          # 1) 필수 패키지 설치
           sudo apt-get update
           sudo apt-get install -y wget unzip xvfb
 
-          # 2) 구글 크롬 설치
+          # 구글 크롬 설치
           wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
           sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get -fy install
 
-          # 3) 크롬드라이버 설치 (메이저 버전만 추출해서 맞춤 설치)
-          #    예: 크롬 버전 "132.0.6834.159-1" -> 메이저버전 "132"
-          CHROME_VERSION_RAW=$(google-chrome --version | cut -d ' ' -f3)
-          CHROME_MAJOR_VERSION=$(echo "$CHROME_VERSION_RAW" | sed 's/-.*//; s/\..*//')
-
-          echo "Chrome version raw: $CHROME_VERSION_RAW"
-          echo "Extracted major version: $CHROME_MAJOR_VERSION"
-
-          LATEST_DRIVER=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION}")
-          echo "LATEST_DRIVER: $LATEST_DRIVER"
-
-          wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$LATEST_DRIVER/chromedriver_linux64.zip"
-          sudo unzip /tmp/chromedriver.zip -d /usr/local/bin/
-          sudo chmod +x /usr/local/bin/chromedriver
-
-          # 4) 필요한 파이썬 라이브러리 설치
+          # 파이썬 패키지 (webdriver-manager 이용)
           pip install selenium webdriver-manager requests openpyxl pandas
 
       - name: Run script
@@ -52,5 +35,4 @@ jobs:
           CHAT_ID: ${{ secrets.CHAT_ID }}
           INTERPARK_ID: ${{ secrets.INTERPARK_ID }}
           INTERPARK_PW: ${{ secrets.INTERPARK_PW }}
-        run: |
-          python main.py
+        run: python main.py
