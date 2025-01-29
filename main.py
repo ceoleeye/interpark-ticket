@@ -7,7 +7,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from datetime import datetime
 
@@ -17,33 +16,7 @@ CHAT_ID = os.environ.get("CHAT_ID")          # 텔레그램 채팅 ID
 INTERPARK_ID = os.environ.get("INTERPARK_ID")  # 인터파크 ID
 INTERPARK_PW = os.environ.get("INTERPARK_PW")  # 인터파크 PW
 
-# ✅ 다운로드 경로 설정 (Mac 기준: ~/Downloads/interpark)
-download_path = os.path.expanduser("~/Downloads/interpark")
-if not os.path.exists(download_path):
-    os.makedirs(download_path)
-
-# ✅ Chrome 다운로드 설정
-chrome_options = webdriver.ChromeOptions()
-# 헤드리스 모드 (GUI 없는 서버/CI 환경)
-chrome_options.add_argument("--headless")
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
-chrome_options.add_argument("--window-size=1920x1080")
-
-chrome_options.add_experimental_option("prefs", {
-    "download.default_directory": download_path,  
-    "download.prompt_for_download": False,        
-    "safebrowsing.enabled": True
-})
-
-# ✅ WebDriver 설정
-service = Service(ChromeDriverManager().install())
-
 def calculate_display_hour(now=None):
-    """
-    현재 분(minute)이 30분 미만이면 그대로 현재 시(hour),
-    30분 이상이면 +1 시간을 반환. 24시를 넘어가면 0시로 처리.
-    """
     if not now:
         now = datetime.now()
     hour = now.hour
@@ -55,7 +28,6 @@ def calculate_display_hour(now=None):
     return display_hour
 
 def send_telegram_message(ticket_count):
-    """ 발권량을 텔레그램으로 전송 """
     formatted_count = f"{ticket_count:,}"
     display_hour = calculate_display_hour()
     hour_text = f"{display_hour:02d}:00"
@@ -70,7 +42,6 @@ def send_telegram_message(ticket_count):
         print(f"❌ 텔레그램 전송 실패: {response.text}")
 
 def ensure_correct_url(driver, expected_url):
-    """ 현재 URL을 확인하고 올바른 URL로 리다이렉트 """
     current_url = driver.current_url
     if current_url == "data:," or current_url != expected_url:
         print(f"⚠️ 잘못된 URL 감지: {current_url}. 올바른 URL로 이동 중...")
@@ -81,11 +52,27 @@ def ensure_correct_url(driver, expected_url):
         else:
             raise Exception(f"❌ URL 이동 실패: {driver.current_url}")
 
-with webdriver.Chrome(service=service, options=chrome_options) as driver:
+def main():
+    # ✅ ChromeOptions 설정
+    chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--window-size=1920x1080")
+
+    # ✅ webdriver-manager 로 ChromeDriver 자동 설치
+    driver = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
+
+    # 아래부터는 기존 코드와 동일
     try:
+        # ✅ 다운로드 경로 (Mac 기준)
+        download_path = os.path.expanduser("~/Downloads/interpark")
+        if not os.path.exists(download_path):
+            os.makedirs(download_path)
+
         wait = WebDriverWait(driver, 10)
 
-        # ✅ 인터파크 관리자 로그인 페이지 이동
+        # ✅ 인터파크 관리자 로그인 페이지
         expected_url = "https://tadmin20.interpark.com/"
         driver.get(expected_url)
         ensure_correct_url(driver, expected_url)
@@ -101,7 +88,7 @@ with webdriver.Chrome(service=service, options=chrome_options) as driver:
                 driver.switch_to.window(main_window)
                 break
 
-        # ✅ 로그인 정보 입력
+        # ✅ 로그인
         try:
             username_field = wait.until(EC.presence_of_element_located((By.ID, "UserID")))
             password_field = wait.until(EC.presence_of_element_located((By.ID, "UserPassword")))
@@ -111,7 +98,6 @@ with webdriver.Chrome(service=service, options=chrome_options) as driver:
         except Exception as e:
             print(f"❌ 로그인 필드 로드 실패: {e}")
 
-        # ✅ 로그인 버튼 클릭
         try:
             login_button = wait.until(EC.element_to_be_clickable((By.ID, "btnLogin")))
             login_button.click()
@@ -157,18 +143,17 @@ with webdriver.Chrome(service=service, options=chrome_options) as driver:
         time.sleep(2)
         print("✅ 발권일 선택 완료!")
 
-        # ✅ 조회 버튼 클릭
+        # ✅ 조회 버튼
         search_button = wait.until(EC.element_to_be_clickable((By.ID, "btnSearch")))
         search_button.click()
         time.sleep(3)
         print("✅ 조회 버튼 클릭 완료!")
 
-        # ✅ 엑셀 다운로드 버튼 클릭
+        # ✅ 엑셀 다운로드 (※ Headless 환경에서 다운로드가 안 될 수도 있음)
         excel_button = wait.until(EC.element_to_be_clickable((By.ID, "btnExcel0")))
         excel_button.click()
         print("✅ 엑셀 다운로드 시작!")
 
-        # ✅ 다운로드 대기
         time.sleep(10)
 
         # ✅ 최신 엑셀 파일 찾기
@@ -180,7 +165,7 @@ with webdriver.Chrome(service=service, options=chrome_options) as driver:
 
         if not files:
             print("❌ 엑셀 파일 다운로드 실패")
-            exit()
+            return
 
         latest_file = os.path.join(download_path, files[0])
         print(f"✅ 엑셀 다운로드 완료: {latest_file}")
@@ -188,11 +173,11 @@ with webdriver.Chrome(service=service, options=chrome_options) as driver:
         # ✅ 엑셀 파일 열기
         df = pd.read_excel(latest_file, engine="openpyxl")
 
-        # ✅ H열(7번째 컬럼)의 마지막 값(발권 수) 가져오기
+        # ✅ H열(7번째 컬럼) 마지막 값 가져오기
         last_row = df.iloc[:, 7].dropna().values[-1]
         print(f"🎟️ 현재 발권량 (엑셀에서 추출): {last_row}")
 
-        # ✅ 텔레그램 메시지 전송
+        # ✅ 텔레그램 전송
         send_telegram_message(last_row)
 
         # ✅ 파일 삭제
@@ -201,3 +186,9 @@ with webdriver.Chrome(service=service, options=chrome_options) as driver:
 
     except Exception as e:
         print(f"❌ 오류 발생: {e}")
+    finally:
+        # 드라이버 종료
+        driver.quit()
+
+if __name__ == "__main__":
+    main()
