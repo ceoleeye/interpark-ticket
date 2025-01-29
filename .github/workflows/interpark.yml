@@ -2,7 +2,8 @@ name: Interpark Automation
 
 on:
   schedule:
-    - cron: '58 1-9 * * *'
+    - cron: '58 1-9 * * *'  # KST 10:58~18:58 (매시 58분)
+    - cron: '28 10 * * *'   # KST 19:28
   workflow_dispatch:
 
 jobs:
@@ -15,19 +16,14 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
-          python-version: "3.9"
+          python-version: '3.9'
 
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y wget unzip xvfb
-
-          # 구글 크롬 설치
-          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-          sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get -fy install
-
-          # 파이썬 패키지 (webdriver-manager 이용)
-          pip install selenium webdriver-manager requests openpyxl pandas
+          # 크롬, 크롬드라이버 등
+          ...
 
       - name: Run script
         env:
@@ -35,4 +31,5 @@ jobs:
           CHAT_ID: ${{ secrets.CHAT_ID }}
           INTERPARK_ID: ${{ secrets.INTERPARK_ID }}
           INTERPARK_PW: ${{ secrets.INTERPARK_PW }}
-        run: python main.py
+        run: |
+          python main.py
