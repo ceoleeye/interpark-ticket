@@ -2,8 +2,10 @@ name: Interpark Automation
 
 on:
   schedule:
-    - cron: '58 1-9 * * *'  # KST 10:58~18:58 (매시 58분)
-    - cron: '28 10 * * *'   # KST 19:28
+    # 1) 매일 UTC 01:57~09:57 (매시 57분) -> 한국시간 10:57~18:57
+    - cron: '57 1-9 * * *'
+    # 2) 매일 UTC 10:27 -> 한국시간 19:27
+    - cron: '27 10 * * *'
   workflow_dispatch:
 
 jobs:
@@ -22,9 +24,26 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y wget unzip xvfb
-          # 크롬, 크롬드라이버 등
-          ...
 
+          # 구글 크롬 설치
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get -fy install
+
+          # 크롬드라이버 (크롬 버전에 맞춰 수동 설치)
+          CHROME_VERSION=$(google-chrome --version | grep -oP '(?<=Google Chrome )\d+')
+          LATEST_DRIVER=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}")
+          wget -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/$LATEST_DRIVER/chromedriver_linux64.zip
+          sudo unzip /tmp/chromedriver.zip -d /usr/local/bin/
+          sudo chmod +x /usr/local/bin/chromedriver
+
+          # 파이썬 라이브러리
+          pip install selenium webdriver-manager requests openpyxl pandas
+
+      # 1) 57분 또는 27분에 잡혔어도, 아래에서 40초 대기 -> "xx분40초"에 실행
+      - name: Sleep 40 seconds
+        run: sleep 40
+
+      # 2) 실제 스크립트 실행
       - name: Run script
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
