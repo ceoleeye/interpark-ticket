@@ -1,8 +1,8 @@
 name: Interpark Automation
 
 on:
+  # (예) 매일 UTC 기준 1시58분~9시58분 => 한국 시간으론 10시58분~18시58분 (총 9회)
   schedule:
-    # (예) 매일 UTC 기준 1시58분 ~ 9시58분 => 한국시간 10시58분 ~ 18시58분 (매 정각 -2분)
     - cron: '58 1-9 * * *'
   workflow_dispatch:
 
@@ -28,14 +28,22 @@ jobs:
           wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
           sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get -fy install
 
-          # 3) 크롬드라이버 (크롬 버전에 맞춰 자동으로)
-          CHROME_VERSION=$(google-chrome --version | grep -oP '(?<=Google Chrome )\d+')
-          LATEST_DRIVER=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}")
-          wget -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/$LATEST_DRIVER/chromedriver_linux64.zip
+          # 3) 크롬드라이버 설치 (메이저 버전만 추출해서 맞춤 설치)
+          #    예: 크롬 버전 "132.0.6834.159-1" -> 메이저버전 "132"
+          CHROME_VERSION_RAW=$(google-chrome --version | cut -d ' ' -f3)
+          CHROME_MAJOR_VERSION=$(echo "$CHROME_VERSION_RAW" | sed 's/-.*//; s/\..*//')
+
+          echo "Chrome version raw: $CHROME_VERSION_RAW"
+          echo "Extracted major version: $CHROME_MAJOR_VERSION"
+
+          LATEST_DRIVER=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION}")
+          echo "LATEST_DRIVER: $LATEST_DRIVER"
+
+          wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$LATEST_DRIVER/chromedriver_linux64.zip"
           sudo unzip /tmp/chromedriver.zip -d /usr/local/bin/
           sudo chmod +x /usr/local/bin/chromedriver
 
-          # 4) 파이썬 라이브러리
+          # 4) 필요한 파이썬 라이브러리 설치
           pip install selenium webdriver-manager requests openpyxl pandas
 
       - name: Run script
