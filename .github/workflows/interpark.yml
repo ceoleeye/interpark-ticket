@@ -2,7 +2,8 @@ name: Interpark Automation
 
 on:
   schedule:
-    - cron: '59 1-9 * * *'  # KST 10:59~18:59 (UTC 1:59~9:59)
+    # (예) 매일 UTC 기준 1시58분 ~ 9시58분 => 한국시간 10시58분 ~ 18시58분 (매 정각 -2분)
+    - cron: '58 1-9 * * *'
   workflow_dispatch:
 
 jobs:
@@ -11,4 +12,37 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v2
-      # 이하 생략 ...
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          # 1) 필수 패키지 설치
+          sudo apt-get update
+          sudo apt-get install -y wget unzip xvfb
+
+          # 2) 구글 크롬 설치
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get -fy install
+
+          # 3) 크롬드라이버 (크롬 버전에 맞춰 자동으로)
+          CHROME_VERSION=$(google-chrome --version | grep -oP '(?<=Google Chrome )\d+')
+          LATEST_DRIVER=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}")
+          wget -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/$LATEST_DRIVER/chromedriver_linux64.zip
+          sudo unzip /tmp/chromedriver.zip -d /usr/local/bin/
+          sudo chmod +x /usr/local/bin/chromedriver
+
+          # 4) 파이썬 라이브러리
+          pip install selenium webdriver-manager requests openpyxl pandas
+
+      - name: Run script
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          INTERPARK_ID: ${{ secrets.INTERPARK_ID }}
+          INTERPARK_PW: ${{ secrets.INTERPARK_PW }}
+        run: |
+          python main.py

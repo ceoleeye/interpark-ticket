@@ -11,28 +11,28 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from datetime import datetime
 
-# === 1) 민감 정보: 환경변수로 받기 ===
-BOT_TOKEN = os.environ.get("BOT_TOKEN")       # 예: "123456:ABC..."
-CHAT_ID = os.environ.get("CHAT_ID")          # 예: "-4184976892"
-INTERPARK_ID = os.environ.get("INTERPARK_ID")  # 예: "ieum00"
-INTERPARK_PW = os.environ.get("INTERPARK_PW")  # 예: "dldma#1A@@"
+# === 민감 정보는 환경 변수로 받는다 ===
+BOT_TOKEN = os.environ.get("BOT_TOKEN")       # 텔레그램 봇 토큰
+CHAT_ID = os.environ.get("CHAT_ID")          # 텔레그램 채팅 ID
+INTERPARK_ID = os.environ.get("INTERPARK_ID")  # 인터파크 ID
+INTERPARK_PW = os.environ.get("INTERPARK_PW")  # 인터파크 PW
 
 # ✅ 다운로드 경로 설정 (Mac 기준: ~/Downloads/interpark)
 download_path = os.path.expanduser("~/Downloads/interpark")
-if not os.path.exists(download_path):  # 폴더 없으면 생성
+if not os.path.exists(download_path):
     os.makedirs(download_path)
 
 # ✅ Chrome 다운로드 설정
 chrome_options = webdriver.ChromeOptions()
-# === 2) 헤드리스 모드 추가 + 기타 옵션 ===
+# 헤드리스 모드 (GUI 없는 서버/CI 환경)
 chrome_options.add_argument("--headless")
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 chrome_options.add_argument("--window-size=1920x1080")
 
 chrome_options.add_experimental_option("prefs", {
-    "download.default_directory": download_path,  # 지정된 다운로드 폴더
-    "download.prompt_for_download": False,        # 다운로드 창 뜨지 않도록 설정
+    "download.default_directory": download_path,  
+    "download.prompt_for_download": False,        
     "safebrowsing.enabled": True
 })
 
@@ -56,14 +56,13 @@ def calculate_display_hour(now=None):
 
 def send_telegram_message(ticket_count):
     """ 발권량을 텔레그램으로 전송 """
-    formatted_count = f"{ticket_count:,}"  # 콤마 추가
+    formatted_count = f"{ticket_count:,}"
     display_hour = calculate_display_hour()
     hour_text = f"{display_hour:02d}:00"
     message = f"{hour_text} 발권수 {formatted_count} 입니다.\n대기 없습니다."
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": message}
-
     response = requests.post(url, data=payload)
     if response.status_code == 200:
         print(f"✅ 텔레그램 전송 완료: {message}")
@@ -106,8 +105,8 @@ with webdriver.Chrome(service=service, options=chrome_options) as driver:
         try:
             username_field = wait.until(EC.presence_of_element_located((By.ID, "UserID")))
             password_field = wait.until(EC.presence_of_element_located((By.ID, "UserPassword")))
-            username_field.send_keys(INTERPARK_ID)  # 환경변수로 받음
-            password_field.send_keys(INTERPARK_PW)  # 환경변수로 받음
+            username_field.send_keys(INTERPARK_ID)
+            password_field.send_keys(INTERPARK_PW)
             print("✅ 로그인 정보 입력 완료!")
         except Exception as e:
             print(f"❌ 로그인 필드 로드 실패: {e}")
@@ -143,7 +142,7 @@ with webdriver.Chrome(service=service, options=chrome_options) as driver:
         time.sleep(2)
         print("✅ 상품 검색 창 열기 완료!")
 
-        # ✅ 좌표 클릭 (경고: Headless 모드에서 안 될 가능성)
+        # ✅ 절대 좌표 클릭 (경고: Headless 모드에서 안 될 수 있음)
         action = ActionChains(driver)
         action.move_by_offset(260, 286).double_click().perform()
         time.sleep(2)
@@ -168,9 +167,11 @@ with webdriver.Chrome(service=service, options=chrome_options) as driver:
         excel_button = wait.until(EC.element_to_be_clickable((By.ID, "btnExcel0")))
         excel_button.click()
         print("✅ 엑셀 다운로드 시작!")
+
+        # ✅ 다운로드 대기
         time.sleep(10)
 
-        # ✅ 엑셀 파일 찾기
+        # ✅ 최신 엑셀 파일 찾기
         files = sorted(
             [f for f in os.listdir(download_path) if f.startswith("티켓발권현황") and (f.endswith(".xls") or f.endswith(".xlsx"))],
             key=lambda x: os.path.getctime(os.path.join(download_path, x)),
@@ -187,7 +188,7 @@ with webdriver.Chrome(service=service, options=chrome_options) as driver:
         # ✅ 엑셀 파일 열기
         df = pd.read_excel(latest_file, engine="openpyxl")
 
-        # ✅ H열(7번째 컬럼)의 마지막 값 가져오기
+        # ✅ H열(7번째 컬럼)의 마지막 값(발권 수) 가져오기
         last_row = df.iloc[:, 7].dropna().values[-1]
         print(f"🎟️ 현재 발권량 (엑셀에서 추출): {last_row}")
 
