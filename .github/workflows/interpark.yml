@@ -1,0 +1,14 @@
+name: Interpark Automation
+
+on:
+  schedule:
+    - cron: '59 1-9 * * *'  # KST 10:59~18:59 (UTC 1:59~9:59)
+  workflow_dispatch:
+
+jobs:
+  run-selenium:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      # 이하 생략 ...
