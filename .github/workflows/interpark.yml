@@ -2,9 +2,7 @@ name: Interpark Automation
 
 on:
   schedule:
-    # (예) 매일 UTC 기준 1시57분 ~ 9시57분 => 한국시간 10시57분 ~ 18시57분 (매 정각 -3분)
     - cron: '57 1-9 * * *'
-    # (추가) 매일 UTC 기준 10시27분 => 한국시간 19시27분
     - cron: '27 10 * * *'
   workflow_dispatch:
 
@@ -30,10 +28,26 @@ jobs:
           wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
           sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get -fy install
 
-          # 3) 크롬드라이버 (크롬 버전에 맞춰 자동으로)
-          CHROME_VERSION=$(google-chrome --version | grep -oP '(?<=Google Chrome )\d+')
-          LATEST_DRIVER=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}")
-          wget -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/$LATEST_DRIVER/chromedriver_linux64.zip
+          # 3) 크롬드라이버 버전을 자동 매칭 (+ fallback)
+          CHROME_VERSION=$(google-chrome --version | sed -E 's/[^0-9]*([0-9]+)\..*/\1/')
+          echo "Detected Chrome major version: $CHROME_VERSION"
+
+          if [ -z "$CHROME_VERSION" ]; then
+            echo "❌ 크롬 버전 파싱 실패. LATEST_RELEASE 로 다운받겠습니다."
+            LATEST_DRIVER=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE")
+          else
+            set +e
+            LATEST_DRIVER=$(curl -f -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}")
+            RET=$?
+            set -e
+            if [ "$RET" -ne 0 ] || [ -z "$LATEST_DRIVER" ]; then
+              echo "⚠️ Chrome 메이저 버전 $CHROME_VERSION => 404, LATEST_RELEASE 로 다운받겠습니다."
+              LATEST_DRIVER=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE")
+            fi
+          fi
+
+          echo "결정된 LATEST_DRIVER=$LATEST_DRIVER"
+          wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$LATEST_DRIVER/chromedriver_linux64.zip"
           sudo unzip /tmp/chromedriver.zip -d /usr/local/bin/
           sudo chmod +x /usr/local/bin/chromedriver
 
