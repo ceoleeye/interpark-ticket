@@ -2,8 +2,8 @@ name: Interpark Automation
 
 on:
   schedule:
-    - cron: '47 1-9 * * *'
-    - cron: '17 10 * * *'
+    - cron: '55 1-9 * * *'
+    - cron: '15 10 * * *'
   workflow_dispatch:
 
 jobs:
