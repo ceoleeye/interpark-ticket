@@ -13,6 +13,14 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
 
+      # ----- 여기서 150초 대기 -----
+      - name: Delay 150 seconds
+        run: |
+          echo "GitHub Actions가 스케줄 트리거됨. 150초 대기 시작..."
+          sleep 150
+          echo "대기 끝! 이제 다음 단계들을 진행합니다."
+      # ---------------------------
+
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
@@ -28,7 +36,7 @@ jobs:
           wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
           sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get -fy install
 
-          # 3) 크롬드라이버 버전을 자동 매칭 (+ fallback)
+          # 3) 크롬드라이버 버전 자동 매칭 (+fallback)
           CHROME_VERSION=$(google-chrome --version | sed -E 's/[^0-9]*([0-9]+)\..*/\1/')
           echo "Detected Chrome major version: $CHROME_VERSION"
 
@@ -61,4 +69,5 @@ jobs:
           INTERPARK_ID: ${{ secrets.INTERPARK_ID }}
           INTERPARK_PW: ${{ secrets.INTERPARK_PW }}
         run: |
+          echo "이제 main.py 실행!"
           python main.py
