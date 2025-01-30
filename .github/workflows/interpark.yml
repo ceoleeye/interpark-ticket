@@ -2,63 +2,44 @@ name: Interpark Automation
 
 on:
   schedule:
-    # (예) 매일 UTC 기준 1시58분 ~ 9시58분 => 한국시간 10시58분 ~ 18시58분 (정각 -2분)
-    - cron: '58 1-9 * * *'
+    # (예) 매일 UTC 기준 1시57분 ~ 9시57분 => 한국시간 10시57분 ~ 18시57분 (매 정각 -3분)
+    - cron: '57 1-9 * * *'
+    # (추가) 매일 UTC 기준 10시27분 => 한국시간 19시27분
+    - cron: '27 10 * * *'
   workflow_dispatch:
 
 jobs:
   run-selenium:
     runs-on: ubuntu-latest
-
     steps:
-      # (1) 깃 체크아웃
       - name: Check out code
         uses: actions/checkout@v2
 
-      # (2) 파이썬 세팅
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
           python-version: '3.9'
 
-      # (3) 의존성 설치
       - name: Install dependencies
         run: |
-          echo "=== [Apt Packages] ==="
+          # 1) 필수 패키지 설치
           sudo apt-get update
           sudo apt-get install -y wget unzip xvfb
 
-          echo "=== [Install Google Chrome] ==="
+          # 2) 구글 크롬 설치
           wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
           sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get -fy install
-          
-          echo "=== [ChromeDriver Fallback Install] ==="
-          # 1) 크롬 전체 버전, 예: 132.0.6834.159
-          CHROME_VERSION_FULL=$(google-chrome --version | grep -oP '(?<=Google Chrome )\d+\.\d+\.\d+\.\d+')
-          MAJOR_VERSION=$(echo "$CHROME_VERSION_FULL" | cut -d '.' -f 1)
-          echo "Chrome Full Version: $CHROME_VERSION_FULL"
-          echo "Chrome Major Version: $MAJOR_VERSION"
 
-          # 2) LATEST_RELEASE_{MAJOR_VERSION} 조회
-          LATEST_DRIVER=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${MAJOR_VERSION}")
-
-          # 3) 응답이 비었거나 Error/XML 포함 -> fallback
-          if [ -z "$LATEST_DRIVER" ] || [[ "$LATEST_DRIVER" == *"Error"* ]]; then
-            echo "No matching LATEST_RELEASE_${MAJOR_VERSION} found. Fallback to LATEST_RELEASE"
-            LATEST_DRIVER=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE")
-          fi
-
-          echo "Resolved ChromeDriver version: $LATEST_DRIVER"
-
-          wget -O /tmp/chromedriver.zip "https://chromedriver.storage.googleapis.com/$LATEST_DRIVER/chromedriver_linux64.zip"
+          # 3) 크롬드라이버 (크롬 버전에 맞춰 자동으로)
+          CHROME_VERSION=$(google-chrome --version | grep -oP '(?<=Google Chrome )\d+')
+          LATEST_DRIVER=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}")
+          wget -O /tmp/chromedriver.zip https://chromedriver.storage.googleapis.com/$LATEST_DRIVER/chromedriver_linux64.zip
           sudo unzip /tmp/chromedriver.zip -d /usr/local/bin/
           sudo chmod +x /usr/local/bin/chromedriver
 
-          echo "=== [PIP Libraries] ==="
-          pip install --upgrade pip
+          # 4) 파이썬 라이브러리
           pip install selenium webdriver-manager requests openpyxl pandas
 
-      # (4) 실행
       - name: Run script
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
